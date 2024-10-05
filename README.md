@@ -1,6 +1,6 @@
 
 # Rhydux 
-Rhydux is a JavaScript 📜 library designed to facilitate the 🛠️ management of hierarchical tags 🏷️ and objects 📦, providing a flexible framework for organizing 📂, categorizing 🗂️, and manipulating 🔄 data. It allows you to build a tag 🌳 tree system with system tags and regular tags, where tags can have nested relationships and objects can be associated with tags for easy management. The primary use case is for apps 📱 that require rich categorization, object tagging, and tag manipulation, such as content management systems 🗃️, data organization tools, or task management software ✅.
+Rhydux is a JavaScript library designed to facilitate the management of hierarchical tags 🏷️ and objects, providing a flexible framework for organizing, categorizing, and manipulating data. It allows you to build a tag tree system with system tags and regular tags, where tags can have nested relationships and objects can be associated with tags for easy management. The primary use case is for apps that require rich categorization, object tagging, and tag manipulation, such as content management systems, data organization tools, or task management software.
 
 Rhydux is built to simplify common operations like tag creation ✨, deletion ❌, tag-object association 🔗, and tag hierarchy rendering 🌲. This 📖 aims to guide you through the structure and capabilities of Rhydux, including its configuration ⚙️, available functions, and practical usage.
 
