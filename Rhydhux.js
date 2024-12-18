@@ -116,7 +116,11 @@ const Rhydux = (function() {
                     userCanAssign,
                     visibleInNavigation: true,
                     editable: false,
-                    fontAwesomeIcon: "tag"
+                    fontAwesomeIcon: "tag",
+                    linkedProperties: {
+                        userProps: {},
+                        systemProps: {},
+                    },
                 };
 
                 this.tagTree.systemTags[fullTagPath] = systemTag;
@@ -150,9 +154,14 @@ const Rhydux = (function() {
                     colorHue: "none",
                     objects,
                     expanded: false,
+                    userCanAssign: true,
                     editable: true,
                     visibleInNavigation: true,
-                    fontAwesomeIcon: "tag"
+                    fontAwesomeIcon: "tag",
+                    linkedProperties: {
+                        userProps: {},
+                        systemProps: {},
+                    },
                 };
 
                 this.tagTree.regularTags[fullTagPath] = regularTag;
@@ -234,6 +243,12 @@ const Rhydux = (function() {
                     lastModifiedTime: createdTime,
                     movedToTrashTime: null,
                     tags: objectTags,
+                    userProps : {
+                        "placeholder": "value"
+                    },
+                    systemProps: {
+                        "placeholder": "value"
+                    },
                 };
 
                 this.objects[objectID] = object;
@@ -248,6 +263,57 @@ const Rhydux = (function() {
             changeObjectProp: (objectID, propName, propValue) => {
                 this.objects[objectID].props[propName] = propValue;
                 this.objects[objectID].lastModifiedTime = Date.now();
+            },
+
+            getSystemPropByName: (propName) => {
+
+                var returningSystemProp = null
+
+                // get system property tag key first
+                var systemPropertyTagKey = null;
+                for (const tagPath in this.tagTree.systemTags) {
+                    if (this.tagTree.systemTags[tagPath].tagName === "System Property") {
+                        systemPropertyTagKey = tagPath;
+                        break;
+                    }
+                } 
+
+                Object.keys(this.objects).forEach(objectID => {
+                    // check if the object has the tag 'System Property'
+                    // console.log(this.objects[objectID].tags[systemPropertyTagKey])
+                    if (this.objects[objectID].tags[systemPropertyTagKey]) {
+                        // check if the object previewTitle is propName
+
+                        // console.log(this.objects[objectID].props.previewTitle, propName)
+                        if (this.objects[objectID].props.previewTitle == propName) {
+                            returningSystemProp = objectID;
+                        }
+                    }
+
+
+                });
+
+                return returningSystemProp;
+            },
+
+            changeObjectVisibleSystemProp: (objectID, propName, propValue, subPropKey=null) => {
+                if (subPropKey) {
+                    if (this.objects[objectID].systemProps[propName]) {
+                        this.objects[objectID].systemProps[propName][subPropKey] = propValue;
+                    }
+                    else {
+                        this.objects[objectID].systemProps[propName] = {}
+                        this.objects[objectID].systemProps[propName][subPropKey] = propValue;
+                    }
+                    
+                } else {
+                    this.objects[objectID].systemProps[propName] = propValue;
+                }
+                this.objects[objectID].lastModifiedTime = Date.now();
+            },
+
+            readObjectProp: (objectID, propName) => {
+                return this.objects[objectID].props[propName];
             },
 
             deleteObject: (objectID) => {
@@ -282,19 +348,14 @@ const Rhydux = (function() {
             },
 
             addTagToObject: (objectID, tagPath) => {
+
                 const object = this.objects[objectID];
-                const tagType = this.operations.getMainTagType(tagPath);
-                if (tagType === "systemTag") {
-                    object.tags[tagPath] = this.tagTree.systemTags[tagPath];
+                var tagType = this.operations.getMainTagType(tagPath);
+                var tagType = tagType + "s"
+                object.tags[tagPath] = this.tagTree[tagType][tagPath];
 
                     // add the object id
-                    this.tagTree.systemTags[tagPath].objects[objectID] = {objectID, objectName: object.objectName};
-                } else if (tagType === "regularTag") {
-                    object.tags[tagPath] = this.tagTree.regularTags[tagPath];
-
-                    // add the object id
-                    this.tagTree.regularTags[tagPath].objects[objectID] = {objectID, objectName: object.objectName};
-                }
+                this.tagTree[tagType][tagPath].objects[objectID] = {objectID, objectName: object.objectName};
 
                 return object;
             },
@@ -315,9 +376,15 @@ const Rhydux = (function() {
                 return object.tags;
             },
 
-            getObjects: (tagPath) => { 
-                returningObjects = {}
+            getObjects: (tagPath, filterBySearchTerm=null) => { 
 
+
+                if (filterBySearchTerm == "") {
+                    filterBySearchTerm = null;
+                }
+
+
+                returningObjects = {}
 
 
                 if (tagPath == null) {
@@ -327,9 +394,22 @@ const Rhydux = (function() {
                         if (this.trashTag && this.objects[objectID].tags[this.trashTag] && this.trashTag !== tagPath) {
                             continue;
                         }
-                        returningObjects[objectID] = {
-                            path: null,
-                            object: this.objects[objectID],
+
+                        if (filterBySearchTerm) {
+                            // check preview title and preview description
+                            if (this.objects[objectID].props.previewTitle.toLowerCase().includes(filterBySearchTerm.toLowerCase()) || this.objects[objectID].props.previewDescription.toLowerCase().includes(filterBySearchTerm.toLowerCase())) {
+
+                                returningObjects[objectID] = {
+                                    path: null,
+                                    object: this.objects[objectID],
+                                }
+                            }
+                        }
+                        else {
+                            returningObjects[objectID] = {
+                                path: null,
+                                object: this.objects[objectID],
+                            }
                         }
                     }
 
@@ -353,14 +433,34 @@ const Rhydux = (function() {
                         if (this.trashTag && this.objects[objectID].tags[this.trashTag] && this.trashTag !== tagPath) {
                             continue;
                         }
-                        returningObjects[objectID] = {
-                            path: path,
-                            object: objectsFound[objectID],
+
+                        if (filterBySearchTerm) {
+                            // check preview title and preview description
+                            if (this.objects[objectID].props.previewTitle.toLowerCase().includes(filterBySearchTerm.toLowerCase()) || this.objects[objectID].props.previewDescription.toLowerCase().includes(filterBySearchTerm.toLowerCase())) {
+
+                                returningObjects[objectID] = {
+                                    path: null,
+                                    object: this.objects[objectID],
+                                }
+                            }
+                        }
+                        else {
+                            returningObjects[objectID] = {
+                                path: null,
+                                object: this.objects[objectID],
+                            }
                         }
                     }
                 }
 
                 // this.tagTree[tagType][tagPath].objects
+
+                
+                // console.log("******************************")
+                // console.log("tagPath", tagPath)
+                // console.log("returningObjects", returningObjects)
+                // console.log(this.tagTree)
+                // console.log("******************************")
 
                 return returningObjects;
             },
@@ -403,11 +503,13 @@ const Rhydux = (function() {
             sortObjects: (objectsInvolved, type="descending") => {
                 var sortedObjects = {}
 
+
                 // sort by lastModifiedTime
                 var sortable = [];
 
                 for (const objectID in objectsInvolved) {
-                    sortable.push([objectID, objectsInvolved[objectID].object.lastModifiedTime]);
+                    var lastModifiedTime = this.operations.getObject(objectID).lastModifiedTime;
+                    sortable.push([objectID, lastModifiedTime]);
                 }
 
                 if (type === "ascending") {
@@ -427,6 +529,21 @@ const Rhydux = (function() {
                 return sortedObjects;
             },
 
+            paginatedObjectsList: (objectsInvolved, perPage = 30, pageNumber = 0) => {
+
+
+                var objectKeys = Object.keys(objectsInvolved);
+                var paginatedObjects = {}
+                for (let i = pageNumber * perPage; i < (pageNumber + 1) * perPage; i++) {
+                    if (objectKeys[i]) {
+                        paginatedObjects[objectKeys[i]] = objectsInvolved[objectKeys[i]];
+                    }
+                }
+
+                return paginatedObjects;
+                
+            },
+
             getChildrenTags: (tagPath) => {
                 var tagType = this.operations.getMainTagType(tagPath);
                 var tagType = tagType + "s"
@@ -441,7 +558,12 @@ const Rhydux = (function() {
                 return childrenTags;
             },
 
-            getImmediateChildrenTags: (tagPath) => {
+            getImmediateChildrenTags: (tagPath, filterBySearchTerm=null) => {
+                if (filterBySearchTerm == "") {
+                    filterBySearchTerm = null;
+                }
+
+
                 var tagType = this.operations.getMainTagType(tagPath);
                 var tagType = tagType + "s"
 
@@ -450,7 +572,15 @@ const Rhydux = (function() {
                     var childTagLevel = childTag.split(default_config.tagSeparator).length
                     var tagLevel = tagPath.split(default_config.tagSeparator).length
                     if (childTag.startsWith(tagPath) && childTag !== tagPath && childTagLevel == tagLevel + 1) {
-                        childrenTags[childTag] = this.tagTree[tagType][childTag];
+                        if (filterBySearchTerm) {
+                            if (this.tagTree[tagType][childTag].tagName.toLowerCase().includes(filterBySearchTerm.toLowerCase())) {
+                                childrenTags[childTag] = this.tagTree[tagType][childTag];
+                            }
+                        }
+                        else {
+                            childrenTags[childTag] = this.tagTree[tagType][childTag];
+                        }
+
                     }
                 }
 
@@ -470,19 +600,61 @@ const Rhydux = (function() {
 
                 return null;
             },
+            
+            getAncestorsOfTag: (tagPath) => {
+                var tagType = this.operations.getMainTagType(tagPath);
+                var tagType = tagType + "s"
 
-            getHighestLevelTags: () => {
+                var tagPathParts = tagPath.split(default_config.tagSeparator);
+
+                var ancestors = []
+
+                if (tagPathParts.length == 1) {
+                    return ancestors;
+                }
+
+                for (let i = 0; i < tagPathParts.length - 1; i++) {
+                    var path = tagPathParts.slice(0, i + 1).join(default_config.tagSeparator);
+                    ancestors.push(path);
+                }
+
+                return ancestors;
+            },
+
+            getHighestLevelTags: (filterBySearchTerm=null) => {
+
+                if (filterBySearchTerm == "") {
+                    filterBySearchTerm = null;
+                }
+
                 var highestLevelTags = []
 
                 for (const tagPath in this.tagTree.systemTags) {
                     if (tagPath.split(default_config.tagSeparator).length == 1) {
-                        highestLevelTags.push(tagPath)
+
+                        if (filterBySearchTerm) {
+                            if (this.tagTree.systemTags[tagPath].tagName.toLowerCase().includes(filterBySearchTerm.toLowerCase())) {
+                                highestLevelTags.push(tagPath)
+                            }
+                        }
+                        else {
+                            highestLevelTags.push(tagPath)
+                        }
+
                     }
                 }
 
                 for (const tagPath in this.tagTree.regularTags) {
                     if (tagPath.split(default_config.tagSeparator).length == 1) {
-                        highestLevelTags.push(tagPath)
+                        
+                        if (filterBySearchTerm) {
+                            if (this.tagTree.regularTags[tagPath].tagName.toLowerCase().includes(filterBySearchTerm.toLowerCase())) {
+                                highestLevelTags.push(tagPath)
+                            }
+                        }
+                        else {
+                            highestLevelTags.push(tagPath)
+                        }
                     }
                 }
 
@@ -688,6 +860,41 @@ const Rhydux = (function() {
                 return searchResults;
             },
 
+            objectHasTag : (objectID, tagPath) => {
+                return this.objects[objectID].tags[tagPath] ? true : false;
+            },
+
+            objectHasRegularTagName: (objectID, tagName) => {
+
+                // get tagPath
+                var searchingTagPath = null;
+                var tagID = null;
+                for (const tagPath in this.tagTree.regularTags) {
+                    if (this.tagTree.regularTags[tagPath].tagName === tagName) {
+                        
+                        searchingTagPath = tagPath;
+                        tagID = this.tagTree.regularTags[tagPath].id;
+                        break;
+                    }
+                }
+
+                if (!searchingTagPath) {
+                    return false;
+                }
+
+
+                for (const tagPath in this.objects[objectID].tags) {
+                    if (tagPath === searchingTagPath) {
+                        return tagPath;
+                    }
+                    if (tagPath.split(default_config.tagSeparator).includes(tagID)) {
+                        return tagPath;
+                    }
+                }
+
+                return false;
+
+            },
 
             searchForTagForObject: (searchQuery, objectKey, searchProps=[], maxResults=100) => {
                 // search for tag in the database
@@ -763,11 +970,85 @@ const Rhydux = (function() {
             },
 
             isInTrash: (objectID) => {
+                // console.log(this.trashTag, this.objects[objectID].tags)
                 if (this.trashTag && this.objects[objectID].tags[this.trashTag]) {
                     return true;
                 }
 
                 return false;
+            },
+
+            objectHasSystemTagName: (objectID, tagName) => {
+
+                // get tagPath
+                var searchingTagPath = null;
+                var tagID = null;
+                for (const tagPath in this.tagTree.systemTags) {
+                    if (this.tagTree.systemTags[tagPath].tagName === tagName) {
+                        
+                        searchingTagPath = tagPath;
+                        tagID = this.tagTree.systemTags[tagPath].id;
+                        break;
+                    }
+                }
+
+                if (!searchingTagPath) {
+                    return false;
+                }
+
+
+                for (const tagPath in this.objects[objectID].tags) {
+                    if (tagPath === searchingTagPath) {
+                        return true;
+                    }
+                    if (tagPath.split(default_config.tagSeparator).includes(tagID)) {
+                        return true;
+                    }
+                }
+
+                return false;
+
+            },
+
+            tagHasParentSystemTagName: (childTagPath, tagName) => {
+
+                // get tagPath
+                var searchingTagPath = null;
+                var tagID = null;
+                for (const tagPath in this.tagTree.systemTags) {
+                    if (this.tagTree.systemTags[tagPath].tagName === tagName) {
+                        
+                        searchingTagPath = tagPath;
+                        tagID = this.tagTree.systemTags[tagPath].id;
+                        break;
+                    }
+                }
+
+                if (!searchingTagPath) {
+                    return false;
+                }
+
+
+                if (childTagPath.split(default_config.tagSeparator).includes(tagID)) {
+                    return true;
+                }
+
+                return false;
+
+            },
+
+            getSystemTagByName: (tagName) => {
+
+                for (const tagPath in this.tagTree.systemTags) {
+                    if (this.tagTree.systemTags[tagPath].tagName === tagName) {
+                        return this.tagTree.systemTags[tagPath];
+                        break;
+                    }
+                }
+
+
+                return null;
+
             },
 
             emptyTrash: () => {
@@ -785,8 +1066,42 @@ const Rhydux = (function() {
                 }
             },
 
+            selectedTagHasAncestorNamed: (tagPath,ancestorTagName) => {
+                
+                var tagType = this.operations.getMainTagType(tagPath);
+                var tagType = tagType + "s"
+
+                var tagPathParts = tagPath.split(default_config.tagSeparator);
+
+                var ancestryPaths = []
+
+                // if (tagPathParts.length == 1) {
+                //     return false;
+                // }
+
+                for (let i = 0; i < tagPathParts.length - 1; i++) {
+                    var path = tagPathParts.slice(0, i + 1).join(default_config.tagSeparator);
+                    ancestryPaths.push(path);
+                }
+
+                for (const path of ancestryPaths) {
+                    if (this.tagTree[tagType][path].tagName === ancestorTagName) {
+                        return true;
+                    }
+                }
+
+                // check if tagpath is the ancestorTagName
+                if (this.tagTree[tagType][tagPath].tagName === ancestorTagName) {
+                    return true;
+                }
+
+
+                return false;
+            }
 
         },
+
+
 
         this.trashTag = null;
 
@@ -1020,23 +1335,72 @@ const Rhydux = (function() {
         getRhyduxDBbyId: function(id) {
             return RhyduxDB[id];
         },
+        setID : function(db, id) {
+            db.id = id;
+            RhyduxData[id] = db;
+        },
         exportRhyduxDB: function(id) {
             rhyduxDB = RhyduxData[id];
-            return {
+            toReturn = {
                 id: id,
                 tagTree: rhyduxDB.tagTree,
                 objects: rhyduxDB.objects,
                 trashTag: rhyduxDB.trashTag,
                 options: rhyduxDB.options
             }
+
+            toReturn = JSON.parse(JSON.stringify(toReturn));
+            return toReturn;
         },
         loadRhyduxDB: function(data={tagTree: {}, objects: {}, id: null, trashTag: null, options: {}}) {
             rhyduxDB = new RhyduxDB({id: data.id});
             rhyduxDB.tagTree = data.tagTree;
+            // console.log(data)
+            // console.log(rhyduxDB)
+            if (rhyduxDB.tagTree.systemTags == null) {
+                rhyduxDB.tagTree.systemTags = {};
+            }
+
+            for (const tagPath in rhyduxDB.tagTree.systemTags) {
+                if (rhyduxDB.tagTree.systemTags[tagPath].objects == null) {
+                    rhyduxDB.tagTree.systemTags[tagPath].objects = {};
+                }
+            }
+
+            if (rhyduxDB.tagTree.regularTags == null) {
+                rhyduxDB.tagTree.regularTags = {};
+            }
+
+            for (const tagPath in rhyduxDB.tagTree.regularTags) {
+                if (rhyduxDB.tagTree.regularTags[tagPath].objects == null) {
+                    rhyduxDB.tagTree.regularTags[tagPath].objects = {};
+                }
+            }
+
             rhyduxDB.objects = data.objects;
+
+            if (rhyduxDB.objects == null) {
+                rhyduxDB.objects = {};
+            }
+            else {
+                for (const objectID in rhyduxDB.objects) {
+                    if (rhyduxDB.objects[objectID].tags == null) {
+                        rhyduxDB.objects[objectID].tags = {};
+                    }
+                }
+            }
+
             rhyduxDB.id = data.id;
             rhyduxDB.trashTag = data.trashTag;
             rhyduxDB.options = data.options;
+            
+            if (rhyduxDB.options == null) {
+                rhyduxDB.options = {};
+            }
+
+
+            RhyduxData[rhyduxDB.id] = rhyduxDB;
+
             return rhyduxDB;
         }
     };
